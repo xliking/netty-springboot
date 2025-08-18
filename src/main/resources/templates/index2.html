@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .disconnected {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .messages {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebSocket 测试页面</h1>
+        
+        <div class="form-group">
+            <label for="username">用户名 (格式: user1, user2, ...):</label>
+            <input type="text" id="username" value="user1" placeholder="输入用户名">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">密码:</label>
+            <input type="password" id="password" value="123456" placeholder="输入密码">
+        </div>
+        
+        <div class="form-group">
+            <button id="loginBtn" onclick="login()">登录</button>
+            <button id="connectBtn" onclick="connectWebSocket()" disabled>连接 WebSocket</button>
+            <button id="disconnectBtn" onclick="disconnectWebSocket()" disabled>断开连接</button>
+        </div>
+        
+        <div class="form-group">
+            <label for="message">发送消息:</label>
+            <input type="text" id="message" placeholder="输入消息内容">
+            <button onclick="sendMessage()" disabled id="sendBtn">发送</button>
+        </div>
+        
+        <div id="status" class="status disconnected">未连接</div>
+        
+        <div class="messages" id="messages"></div>
+    </div>
+
+    <script>
+        let socket = null;
+        let token = null;
+        let userId = null;
+
+        function log(message, type = 'info') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('http://localhost:8081/user/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data) {
+                        token = data.tokenValue;
+                        userId = username.substring(4);
+                        log(`登录成功! 用户ID: ${userId}`, 'success');
+                        document.getElementById('connectBtn').disabled = false;
+                        document.getElementById('loginBtn').disabled = true;
+                    } else {
+                        log('登录失败: 用户名或密码错误', 'error');
+                    }
+                } else {
+                    log('登录失败: 服务器错误', 'error');
+                }
+            } catch (error) {
+                log(`登录失败: ${error.message}`, 'error');
+            }
+        }
+
+        function connectWebSocket() {
+            if (!token) {
+                log('请先登录获取token', 'error');
+                return;
+            }
+
+            // 注意：WebSocket 连接到 Netty 服务器的端口 8090
+            const wsUrl = `ws://localhost:8090/ws?token=${token}`;
+            
+            try {
+                socket = new WebSocket(wsUrl);
+                
+                socket.onopen = function(event) {
+                    log('WebSocket 连接成功!', 'success');
+                    document.getElementById('status').textContent = '已连接';
+                    document.getElementById('status').className = 'status connected';
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    document.getElementById('sendBtn').disabled = false;
+                };
+
+                socket.onmessage = function(event) {
+                    log(`收到消息: ${event.data}`);
+                };
+
+                socket.onclose = function(event) {
+                    log('WebSocket 连接关闭', 'error');
+                    document.getElementById('status').textContent = '未连接';
+                    document.getElementById('status').className = 'status disconnected';
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    document.getElementById('sendBtn').disabled = true;
+                };
+
+                socket.onerror = function(error) {
+                    log(`WebSocket 错误: ${error}`, 'error');
+                };
+
+            } catch (error) {
+                log(`连接失败: ${error.message}`, 'error');
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (socket) {
+                socket.close();
+                socket = null;
+            }
+        }
+
+        function sendMessage() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                log('WebSocket 未连接', 'error');
+                return;
+            }
+
+            const messageText = document.getElementById('message').value;
+            if (!messageText) {
+                log('请输入消息内容', 'error');
+                return;
+            }
+
+            const message = {
+                action: 'SEND_TO_USER',
+                receiverId: 2, // 发送给用户2
+                content: messageText,
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                socket.send(JSON.stringify(message));
+                log(`发送消息: ${JSON.stringify(message)}`);
+                document.getElementById('message').value = '';
+            } catch (error) {
+                log(`发送失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载时的初始化
+        window.onload = function() {
+            log('页面加载完成，请先登录', 'info');
+        };
+    </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import xlike.top.nettydemo.constants.NettyConstants;
 
@@ -16,6 +17,7 @@ import static io.netty.handler.codec.http.HttpHeaderNames.CONTENT_TYPE;
  * 用于处理简单的 HTTP 请求，例如健康检查
  * @author Administrator
  */
+@Slf4j
 @Component
 @ChannelHandler.Sharable
 public class HttpRouterHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
@@ -28,13 +30,21 @@ public class HttpRouterHandler extends SimpleChannelInboundHandler<FullHttpReque
      */
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest req) {
+        log.info("HttpRouterHandler received request: {} {}", req.method(), req.uri());
+        
+        // 检查是否为 WebSocket 升级请求，如果是则不应该走到这里
+        if (req.headers().contains(HttpHeaderNames.UPGRADE) && "websocket".equalsIgnoreCase(req.headers().get(HttpHeaderNames.UPGRADE))) {
+            log.warn("WebSocket request reached HttpRouterHandler - this should not happen!");
+            ctx.fireChannelRead(req.retain());
+            return;
+        }
+        
         // 检查是否为健康检查请求
         if (NettyConstants.HEALTH_CHECK_PATH.equals(req.uri())) {
             handleHealthCheck(ctx);
         } else {
-            // 如果不是健康检查请求，则将请求传递给下一个处理器
-            // retain() 是必需的，因为 fireChannelRead 会释放消息
-            ctx.fireChannelRead(req.retain());
+            // 如果不是健康检查请求，返回 404
+            sendNotFoundResponse(ctx);
         }
     }
 

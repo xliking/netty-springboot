@@ -34,47 +34,63 @@ public class AuthHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
      */
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest req) {
+        log.info("AuthHandler received request: {} {}", req.method(), req.uri());
+        log.info("Headers: {}", req.headers());
+        
         // 只关心 WebSocket 的升级请求
         if (req.headers().contains(HttpHeaderNames.UPGRADE) && "websocket".equalsIgnoreCase(req.headers().get(HttpHeaderNames.UPGRADE))) {
+            
+            // 获取干净的 URI（去掉查询参数）
+            String cleanUri = req.uri().split("\\?")[0];
+            log.info("Clean URI for WebSocket upgrade: {}", cleanUri);
             try {
+                log.info("Processing WebSocket upgrade request");
+                
                 // 从请求头中获取 token
                 String token = req.headers().get("Authorization");
-                String clientId = req.headers().get("ClientId");
+                log.info("Token from Authorization header: {}", token);
+                
                 // 如果请求头中没有，则尝试从URL查询参数中获取 (为了兼容浏览器JS)
                 if (token == null || token.isEmpty()) {
                     QueryStringDecoder decoder = new QueryStringDecoder(req.uri());
                     Map<String, List<String>> parameters = decoder.parameters();
+                    log.info("URL parameters: {}", parameters);
+                    
                     if (parameters.containsKey("token") && !parameters.get("token").isEmpty()) {
                         token = parameters.get("token").get(0);
+                        log.info("Token from URL parameter: {}", token);
                     }
                 }
-                if (token == null || clientId == null) {
+                if (token == null) {
                     throw new SecurityException("令牌不能为空");
                 }
 
+                log.info("Validating token: {}", token);
+                
                 //  验证 token
                 Object loginId = StpUtil.getLoginIdByToken(token);
                 if (loginId == null) {
                      throw new SecurityException("无效的Token");
                 }
-                // 3. 认证成功，将用户ID附加到Channel上
-                // 注意：此时直接附加不可行，因为 handler 实例是共享的
-                // 正确的做法是在认证通过后，将用户ID传递给下一个handler
-                // 这里我们暂存到 context 的一个 attribute 中，供后续 handler 使用
+                
+                log.info("Token validated successfully for user: {}", loginId);
+                
+                // 认证成功，将用户ID附加到Channel上
                 ctx.channel().attr(SessionManager.USER_ID_KEY).set(Long.valueOf(loginId.toString()));
+                log.info("User ID attached to channel: {}", loginId);
 
-                // 4. 移除本 Handler，并将请求传递给下一个 Handler 进行协议升级
-                ctx.pipeline().remove(this);
                 // 必须调用 retain()，因为 fireChannelRead 会释放 req
                 ctx.fireChannelRead(req.retain());
+                log.info("Request passed to next handler");
 
             } catch (Exception e) {
-                log.warn("WebSocket authentication failed: {}", e.getMessage());
+                log.error("WebSocket authentication failed: {}", e.getMessage(), e);
                 // 认证失败，返回 401 Unauthorized
                 sendHttpResponse(ctx, new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.UNAUTHORIZED));
                 return; // 结束处理，不传递给后续handler
             }
         } else {
+             log.info("Not a WebSocket upgrade request, passing to next handler");
              // 如果不是 ws 升级请求，直接传递给下一个 handler (例如 HttpRouterHandler)
              ctx.fireChannelRead(req.retain());
         }
