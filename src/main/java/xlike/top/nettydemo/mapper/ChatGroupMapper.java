@@ -8,7 +8,6 @@ import java.util.List;
 /**
  * @author Administrator
  */
-//@Mapper
 public interface ChatGroupMapper extends BaseMapper<ChatGroup> {
 
     /**

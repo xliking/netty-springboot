@@ -11,6 +11,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import xlike.top.nettydemo.entity.ChatGroup;
+import xlike.top.nettydemo.entity.Message;
 import xlike.top.nettydemo.model.ChatMessage;
 import xlike.top.nettydemo.model.SessionManager;
 import xlike.top.nettydemo.service.ChatService;
@@ -37,7 +38,7 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof WebSocketServerProtocolHandler.HandshakeComplete) {
-            log.info("WebSocket handshake successful with {}", ctx.channel().remoteAddress());
+            log.info("WebSocket 握手成功 {}", ctx.channel().remoteAddress());
             Long userId = ctx.channel().attr(SessionManager.USER_ID_KEY).get();
             if (userId != null) {
                 sessionManager.userLogin(userId, ctx.channel());
@@ -48,7 +49,7 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
                 }
                 log.info("User {} session is now active and joined {} groups.", userId, groups.size());
             } else {
-                log.error("Handshake complete but no user ID found. Closing connection.");
+                log.error("握手完成，但未找到用户ID --- 关闭连接");
                 ctx.close();
             }
         } else {
@@ -100,7 +101,7 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
     }
 
     private void handleGetPrivateHistory(ChannelHandlerContext ctx, Long userId1, Long userId2) throws JsonProcessingException {
-        List messages = chatService.getPrivateChatHistory(userId1, userId2);
+        List<Message> messages = chatService.getPrivateChatHistory(userId1, userId2);
         ChatMessage response = new ChatMessage();
         response.setAction(ChatMessage.ActionType.PUSH_HISTORY);
         response.setData(messages);
@@ -108,7 +109,7 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
     }
 
     private void handleGetGroupHistory(ChannelHandlerContext ctx, Long groupId) throws JsonProcessingException {
-        List messages = chatService.getGroupChatHistory(groupId);
+        List<Message> messages = chatService.getGroupChatHistory(groupId);
         ChatMessage response = new ChatMessage();
         response.setAction(ChatMessage.ActionType.PUSH_HISTORY);
         response.setData(messages);

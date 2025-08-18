@@ -33,9 +33,15 @@ spring:
           max-idle: 8
           # ???????????
           min-idle: 0
-
 mybatis-plus:
-  mapper-locations: classpath:mapper/**/*.xml
+  enableLogicDelete: true
+  mapperPackage: xlike.top.**.mapper
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: xlike.top.nettydemo.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
 
 
 
