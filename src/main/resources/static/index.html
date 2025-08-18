@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>Netty IM 演示</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 1rem; display: flex; gap: 1rem; }
+        .column { flex: 1; display: flex; flex-direction: column; gap: 1rem; }
+        .card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; }
+        .card h2 { margin-top: 0; }
+        .row { margin: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem; }
+        .row label { width: 120px; text-align: right; }
+        #log { white-space: pre-wrap; border: 1px solid #ddd; border-radius: 8px; padding: 10px; height: 600px; overflow: auto; background: #fafafa; font-size: 12px; }
+        input, button { padding: .5rem .75rem; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+        button { cursor: pointer; background-color: #f0f0f0; }
+        button:disabled { cursor: not-allowed; opacity: 0.5; }
+        hr { border: none; border-top: 1px solid #eee; margin: 1rem 0; }
+    </style>
+</head>
+<body>
+<div class="column">
+    <div class="card">
+        <h2>1. 登录 (HTTP)</h2>
+        <div class="row">
+            <label>用户名:</label>
+            <input id="username" value="user1"/> (示例: user1, user2)
+        </div>
+        <div class="row">
+            <label>密码:</label>
+            <input id="password" type="password" value="123456"/> (示例: 123456)
+        </div>
+        <div class="row">
+            <label></label>
+            <button id="loginBtn">登录</button>
+        </div>
+        <div class="row">
+            <label>Token:</label>
+            <input id="token" size="40" readonly placeholder="登录后获取"/>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>2. 连接 (WebSocket)</h2>
+        <div class="row">
+            <label>WS 地址:</label>
+            <input id="url" size="40" value="ws://localhost:8090/ws"/>
+        </div>
+        <div class="row">
+            <label></label>
+            <button id="connectBtn" disabled>连接</button>
+            <button id="disconnectBtn" disabled>断开</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>3. 功能操作</h2>
+        <button id="getGroupsBtn" disabled>获取我的群聊</button>
+        <hr>
+        <div class="row">
+            <label>用户ID:</label>
+            <input id="privateUserId" value="2" size="5"/>
+            <button id="getPrivateHistoryBtn" disabled>获取与Ta的聊天记录</button>
+        </div>
+        <div class="row">
+            <label>群组ID:</label>
+            <input id="historyGroupId" value="1" size="5"/>
+            <button id="getGroupHistoryBtn" disabled>获取该群的聊天记录</button>
+        </div>
+        <hr>
+        <div class="row">
+            <label>接收用户ID:</label>
+            <input id="sendToUserId" value="2" size="5"/>
+        </div>
+        <div class="row">
+            <label>消息内容:</label>
+            <input id="privateMsgContent" value="你好, User2!" size="20"/>
+            <button id="sendToUserBtn" disabled>发送单聊消息</button>
+        </div>
+        <hr>
+        <div class="row">
+            <label>接收群组ID:</label>
+            <input id="sendToGroupId" value="1" size="5"/>
+        </div>
+        <div class="row">
+            <label>消息内容:</label>
+            <input id="groupMsgContent" value="大家好, 我是User1!" size="20"/>
+            <button id="sendToGroupBtn" disabled>发送群聊消息</button>
+        </div>
+    </div>
+</div>
+
+<div class="column">
+    <div class="card">
+        <h2>日志/消息</h2>
+        <div id="log"></div>
+    </div>
+</div>
+
+<script>
+    let ws;
+    let tokenValue = '';
+
+    const logEl = document.getElementById('log');
+    const log = (s) => {
+        const time = new Date().toLocaleTimeString();
+        logEl.textContent += `[${time}] ${s}\n\n`;
+        logEl.scrollTop = logEl.scrollHeight;
+    };
+
+    const setLoginState = (loggedIn) => {
+        document.getElementById('loginBtn').disabled = loggedIn;
+        document.getElementById('connectBtn').disabled = !loggedIn;
+    };
+
+    const setConnectState = (connected) => {
+        document.getElementById('connectBtn').disabled = connected;
+        document.getElementById('disconnectBtn').disabled = !connected;
+        document.getElementById('getGroupsBtn').disabled = !connected;
+        document.getElementById('getPrivateHistoryBtn').disabled = !connected;
+        document.getElementById('getGroupHistoryBtn').disabled = !connected;
+        document.getElementById('sendToUserBtn').disabled = !connected;
+        document.getElementById('sendToGroupBtn').disabled = !connected;
+    };
+
+    // 1. 登录逻辑
+    document.getElementById('loginBtn').onclick = async () => {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        log(`➡️ [HTTP] 正在登录: ${username}...`);
+        try {
+            const response = await fetch('/user/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            if (!response.ok) throw new Error(`登录失败: ${response.statusText}`);
+
+            const data = await response.json();
+            tokenValue = data.tokenValue;
+            document.getElementById('token').value = tokenValue;
+            log(`✅ [HTTP] 登录成功! Token: ${tokenValue.substring(0, 20)}...`);
+            setLoginState(true);
+        } catch (e) {
+            log(`❌ [HTTP] 登录错误: ${e.message}`);
+        }
+    };
+
+    // 2. 连接WS逻辑
+    document.getElementById('connectBtn').onclick = () => {
+        if (!tokenValue) {
+            log('❌ [WS] 请先登录获取Token!');
+            return;
+        }
+        let url = document.getElementById('url').value;
+        // 将Token作为查询参数附加到URL
+        url += `?token=${tokenValue}`;
+
+        ws = new WebSocket(url);
+        log(`➡️ [WS] 正在连接: ${url}`);
+
+        ws.onopen = () => { log('✅ [WS] 连接成功!'); setConnectState(true); };
+        ws.onclose = () => { log('❌ [WS] 连接关闭'); setConnectState(false); ws = null; };
+        ws.onerror = (e) => { log('⚠️ [WS] 连接错误'); console.error(e); };
+        ws.onmessage = (e) => {
+            log('📥 [WS] 收到消息:\n' + JSON.stringify(JSON.parse(e.data), null, 2));
+        };
+    };
+
+    document.getElementById('disconnectBtn').onclick = () => {
+        if (ws) { ws.close(); }
+    };
+
+    const sendWsJson = (payload) => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            const jsonString = JSON.stringify(payload);
+            ws.send(jsonString);
+            log(`📤 [WS] 发送消息:\n${JSON.stringify(payload, null, 2)}`);
+        } else {
+            log('⚠️ [WS] WebSocket未连接,无法发送消息!');
+        }
+    };
+
+    // 3. 功能操作逻辑
+    document.getElementById('getGroupsBtn').onclick = () => {
+        sendWsJson({ action: 'GET_GROUP_LIST' });
+    };
+
+    document.getElementById('getPrivateHistoryBtn').onclick = () => {
+        const receiverId = parseInt(document.getElementById('privateUserId').value);
+        sendWsJson({ action: 'GET_PRIVATE_HISTORY', receiverId: receiverId });
+    };
+
+    document.getElementById('getGroupHistoryBtn').onclick = () => {
+        const groupId = parseInt(document.getElementById('historyGroupId').value);
+        sendWsJson({ action: 'GET_GROUP_HISTORY', groupId: groupId });
+    };
+
+    document.getElementById('sendToUserBtn').onclick = () => {
+        const receiverId = parseInt(document.getElementById('sendToUserId').value);
+        const content = document.getElementById('privateMsgContent').value;
+        sendWsJson({
+            action: 'SEND_TO_USER',
+            receiverId: receiverId,
+            messageType: 'TEXT',
+            content: content
+        });
+    };
+
+    document.getElementById('sendToGroupBtn').onclick = () => {
+        const groupId = parseInt(document.getElementById('sendToGroupId').value);
+        const content = document.getElementById('groupMsgContent').value;
+        sendWsJson({
+            action: 'SEND_TO_GROUP',
+            groupId: groupId,
+            messageType: 'TEXT',
+            content: content
+        });
+    };
+
+</script>
+</body>
+</html>
