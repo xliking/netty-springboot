@@ -32,9 +32,9 @@ public class HttpRouterHandler extends SimpleChannelInboundHandler<FullHttpReque
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest req) {
         log.info("HttpRouterHandler received request: {} {}", req.method(), req.uri());
         
-        // 检查是否为 WebSocket 升级请求，如果是则不应该走到这里
+        // 检查是否为 WebSocket 升级请求，如果是则传递给下一个处理器
         if (req.headers().contains(HttpHeaderNames.UPGRADE) && "websocket".equalsIgnoreCase(req.headers().get(HttpHeaderNames.UPGRADE))) {
-            log.warn("WebSocket request reached HttpRouterHandler - this should not happen!");
+            log.info("WebSocket request passed to WebSocket protocol handler");
             ctx.fireChannelRead(req.retain());
             return;
         }
@@ -43,7 +43,7 @@ public class HttpRouterHandler extends SimpleChannelInboundHandler<FullHttpReque
         if (NettyConstants.HEALTH_CHECK_PATH.equals(req.uri())) {
             handleHealthCheck(ctx);
         } else {
-            // 如果不是健康检查请求，返回 404
+            // 如果不是健康检查请求
             sendNotFoundResponse(ctx);
         }
     }
@@ -63,5 +63,19 @@ public class HttpRouterHandler extends SimpleChannelInboundHandler<FullHttpReque
 
         // 发送响应并添加监听器，失败时关闭连接
         ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+    }
+
+    /**
+     * 发送 404 Not Found 响应
+     */
+    private void sendNotFoundResponse(ChannelHandlerContext ctx) {
+        var content = ctx.alloc().buffer();
+        content.writeCharSequence("Not Found", java.nio.charset.StandardCharsets.UTF_8);
+
+        var resp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, content);
+        resp.headers().set(CONTENT_TYPE, "text/plain; charset=utf-8");
+        resp.headers().setInt(CONTENT_LENGTH, content.readableBytes());
+
+        ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
     }
 }

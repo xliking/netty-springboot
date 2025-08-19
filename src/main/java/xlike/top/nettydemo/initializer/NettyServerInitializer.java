@@ -5,6 +5,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolConfig;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -84,17 +85,22 @@ public class NettyServerInitializer extends ChannelInitializer<SocketChannel> {
         // 认证 Handler：所有 HTTP 请求都会先经过这里
         p.addLast("authHandler", authHandler);
         
-        // WebSocket 协议处理器
-        p.addLast("webSocketProtocol", new WebSocketServerProtocolHandler(
-                props.getWebsocketPath(), null, true, props.getMaxWsFrameSize()));
-        log.info("WebSocket protocol handler configured for path: {}", props.getWebsocketPath());
+        // 自定义 HTTP 路由处理器
+        // 处理非 WebSocket 的普通 HTTP 请求
+        p.addLast("httpRouter", httpRouterHandler);
+        
+        // WebSocket 协议处理器 - 使用自定义配置来处理查询参数
+        WebSocketServerProtocolConfig config = WebSocketServerProtocolConfig.newBuilder()
+                .websocketPath(props.getWebsocketPath())
+                .checkStartsWith(true)  // 允许路径以指定路径开始（处理查询参数）
+                .maxFramePayloadLength(props.getMaxWsFrameSize())
+                .build();
+        WebSocketServerProtocolHandler wsProtocolHandler = new WebSocketServerProtocolHandler(config);
+        p.addLast("webSocketProtocol", wsProtocolHandler);
+        log.info("WebSocket protocol handler configured for path: {} (with query params support)", props.getWebsocketPath());
 
         // 自定义 WebSocket 消息帧处理器
         // 只有在 WebSocket 握手成功后，这个 Handler 才会收到消息（WebSocketFrame）
         p.addLast("webSocketFrameHandler", wsHandler);
-        
-        // 自定义 HTTP 路由处理器
-        // 只有非 WebSocket 的普通 HTTP 请求才会走到这里
-        p.addLast("httpRouter", httpRouterHandler);
     }
 }

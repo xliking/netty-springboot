@@ -4,7 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.http.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +22,7 @@ import java.util.Map;
  */
 @Component
 @ChannelHandler.Sharable
-public class AuthHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+public class AuthHandler extends ChannelInboundHandlerAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(AuthHandler.class);
 
@@ -33,7 +33,13 @@ public class AuthHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
      * @param req FullHttpRequest
      */
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest req) {
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        if (!(msg instanceof FullHttpRequest)) {
+            ctx.fireChannelRead(msg);
+            return;
+        }
+        
+        FullHttpRequest req = (FullHttpRequest) msg;
         log.info("AuthHandler received request: {} {}", req.method(), req.uri());
         log.info("Headers: {}", req.headers());
         
@@ -79,20 +85,21 @@ public class AuthHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
                 ctx.channel().attr(SessionManager.USER_ID_KEY).set(Long.valueOf(loginId.toString()));
                 log.info("User ID attached to channel: {}", loginId);
 
-                // 必须调用 retain()，因为 fireChannelRead 会释放 req
-                ctx.fireChannelRead(req.retain());
+                // 传递请求给下一个处理器
+                ctx.fireChannelRead(req);
                 log.info("Request passed to next handler");
 
             } catch (Exception e) {
                 log.error("WebSocket authentication failed: {}", e.getMessage(), e);
                 // 认证失败，返回 401 Unauthorized
                 sendHttpResponse(ctx, new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.UNAUTHORIZED));
+                req.release(); // 释放请求消息
                 return; // 结束处理，不传递给后续handler
             }
         } else {
              log.info("Not a WebSocket upgrade request, passing to next handler");
              // 如果不是 ws 升级请求，直接传递给下一个 handler (例如 HttpRouterHandler)
-             ctx.fireChannelRead(req.retain());
+             ctx.fireChannelRead(req);
         }
     }
 
