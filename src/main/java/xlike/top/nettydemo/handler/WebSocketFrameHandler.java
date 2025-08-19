@@ -39,15 +39,9 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         log.info("WebSocketFrameHandler userEventTriggered: {}", evt.getClass().getSimpleName());
         if (evt instanceof WebSocketServerProtocolHandler.HandshakeComplete) {
-            WebSocketServerProtocolHandler.HandshakeComplete handshake = (WebSocketServerProtocolHandler.HandshakeComplete) evt;
             log.info("WebSocket 握手成功 from: {}", ctx.channel().remoteAddress());
-            log.info("Request URI: {}", handshake.requestUri());
-            log.info("Selected subprotocol: {}", handshake.selectedSubprotocol());
-            log.info("Handshake headers: {}", handshake.requestHeaders());
-            
             Long userId = ctx.channel().attr(SessionManager.USER_ID_KEY).get();
             log.info("User ID from channel attribute: {}", userId);
-            
             if (userId != null) {
                 sessionManager.userLogin(userId, ctx.channel());
                 // 登录成功后，获取该用户的所有群组，并让其Channel加入

@@ -22,20 +22,16 @@ public class UserController {
         if ("123456".equals(password) && username != null && username.startsWith("user")) {
             try {
                 long loginId = Long.parseLong(username.substring(4));
-                // Sa-Token 登录
                 StpUtil.login(loginId);
-                // 返回 Token 信息
                 return new SaTokenInfo(StpUtil.getTokenInfo());
             } catch (NumberFormatException e) {
-                 // 登录失败
+                // 登录失败
             }
         }
-        
-        // 实际项目中应抛出认证异常
         return null;
     }
-    
-    // 用于封装 Sa-Token 信息的内部类
+
+
     public static class SaTokenInfo {
         public String tokenName;
         public String tokenValue;

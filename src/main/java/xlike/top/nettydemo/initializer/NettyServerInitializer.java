@@ -36,37 +36,6 @@ public class NettyServerInitializer extends ChannelInitializer<SocketChannel> {
     }
 
 
-
-
-
-
-//    @Override
-//    protected void initChannel(SocketChannel ch) {
-//        ChannelPipeline p = ch.pipeline();
-//
-//        // HTTP 协议处理
-//        p.addLast("httpCodec", new HttpServerCodec());
-//        // 64KB
-//        p.addLast("httpAggregator", new HttpObjectAggregator(65536));
-//        // 自定义 HTTP 路由
-//        p.addLast("httpRouter", httpRouterHandler);
-//        // 添加认证处理器
-//        p.addLast("authHandler", authHandler);
-//        // 心跳检测
-//        p.addLast("idleStateHandler", new IdleStateHandler(
-//                props.getReaderIdleSeconds(), props.getWriterIdleSeconds(), 0));
-//        // WebSocket 协议处理器
-//        p.addLast("webSocketProtocol", new WebSocketServerProtocolHandler(
-//                props.getWebsocketPath(), null, true, props.getMaxWsFrameSize()));
-//        // 自定义 WebSocket 消息帧处理器
-//        p.addLast("webSocketFrameHandler", wsHandler);
-//    }
-
-
-
-
-
-
     /**
      * 初始化新接受的 Channel
      *
@@ -75,31 +44,26 @@ public class NettyServerInitializer extends ChannelInitializer<SocketChannel> {
     @Override
     protected void initChannel(SocketChannel ch) {
         ChannelPipeline p = ch.pipeline();
-
         // HTTP 协议处理
         p.addLast("httpCodec", new HttpServerCodec());
         p.addLast("httpAggregator", new HttpObjectAggregator(65536));
         p.addLast("idleStateHandler", new IdleStateHandler(
                 props.getReaderIdleSeconds(), props.getWriterIdleSeconds(), 0));
-
         // 认证 Handler：所有 HTTP 请求都会先经过这里
         p.addLast("authHandler", authHandler);
-        
         // 自定义 HTTP 路由处理器
         // 处理非 WebSocket 的普通 HTTP 请求
         p.addLast("httpRouter", httpRouterHandler);
-        
         // WebSocket 协议处理器 - 使用自定义配置来处理查询参数
         WebSocketServerProtocolConfig config = WebSocketServerProtocolConfig.newBuilder()
                 .websocketPath(props.getWebsocketPath())
-                .checkStartsWith(true)  // 允许路径以指定路径开始（处理查询参数）
+                // 允许路径以指定路径开始（处理查询参数）
+                .checkStartsWith(true)
                 .maxFramePayloadLength(props.getMaxWsFrameSize())
                 .build();
         WebSocketServerProtocolHandler wsProtocolHandler = new WebSocketServerProtocolHandler(config);
         p.addLast("webSocketProtocol", wsProtocolHandler);
         log.info("WebSocket protocol handler configured for path: {} (with query params support)", props.getWebsocketPath());
-
-        // 自定义 WebSocket 消息帧处理器
         // 只有在 WebSocket 握手成功后，这个 Handler 才会收到消息（WebSocketFrame）
         p.addLast("webSocketFrameHandler", wsHandler);
     }
