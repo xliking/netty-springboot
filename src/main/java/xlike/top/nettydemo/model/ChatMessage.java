@@ -28,10 +28,16 @@ public class ChatMessage {
         SEND_TO_USER,
         SEND_TO_GROUP,
 
-        // 服务端操作 - 通用消息推送
-        PUSH_MESSAGE,
-        PUSH_GROUP_LIST,
-        PUSH_HISTORY
+        // 服务端推送操作
+        PUSH_MESSAGE,           // 推送新消息
+        PUSH_GROUP_LIST,        // 推送群组列表
+        PUSH_HISTORY,           // 推送历史记录
+        PUSH_NOTIFICATION,      // 推送通知消息
+        PUSH_SYSTEM_MESSAGE,    // 推送系统消息
+        PUSH_USER_STATUS,       // 推送用户状态变更
+        PUSH_GROUP_UPDATE,      // 推送群组信息更新
+        PUSH_ONLINE_USERS,      // 推送在线用户列表
+        PUSH_BROADCAST          // 服务端广播消息
     }
 
     private ActionType action;

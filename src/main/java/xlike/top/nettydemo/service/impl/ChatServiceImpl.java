@@ -1,11 +1,7 @@
 package xlike.top.nettydemo.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.netty.channel.Channel;
-import io.netty.channel.group.ChannelGroup;
-import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import xlike.top.nettydemo.entity.ChatGroup;
@@ -15,6 +11,7 @@ import xlike.top.nettydemo.mapper.MessageMapper;
 import xlike.top.nettydemo.model.ChatMessage;
 import xlike.top.nettydemo.model.SessionManager;
 import xlike.top.nettydemo.service.ChatService;
+import xlike.top.nettydemo.service.WebSocketPushService;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,11 +26,13 @@ public class ChatServiceImpl implements ChatService {
     private final MessageMapper messageMapper;
     private final SessionManager sessionManager = SessionManager.getInstance();
     private final ObjectMapper objectMapper;
+    private final WebSocketPushService pushService;
 
-    public ChatServiceImpl(ChatGroupMapper chatGroupMapper, MessageMapper messageMapper, ObjectMapper objectMapper) {
+    public ChatServiceImpl(ChatGroupMapper chatGroupMapper, MessageMapper messageMapper, ObjectMapper objectMapper, WebSocketPushService pushService) {
         this.chatGroupMapper = chatGroupMapper;
         this.messageMapper = messageMapper;
         this.objectMapper = objectMapper;
+        this.pushService = pushService;
     }
 
     @Override
@@ -62,17 +61,17 @@ public class ChatServiceImpl implements ChatService {
         // 保存消息到数据库
         Message message = convertToMessageEntity(chatMessage);
         messageMapper.insert(message);
-        // 查找接收者的Channel
-        Channel receiverChannel = sessionManager.getChannelByUserId(chatMessage.getReceiverId());
-        // 如果接收者在线，实时推送消息
-        if (receiverChannel != null) {
-            try {
-                receiverChannel.writeAndFlush(new TextWebSocketFrame(objectMapper.writeValueAsString(chatMessage)));
-            } catch (JsonProcessingException e) {
-                log.error("Error converting ChatMessage to JSON: {}", e.getMessage());
-            }
+        
+        // 使用推送服务发送消息
+        chatMessage.setAction(ChatMessage.ActionType.PUSH_MESSAGE);
+        boolean success = pushService.pushMessageToUser(chatMessage.getReceiverId(), chatMessage);
+        
+        if (success) {
+            log.info("Private message sent from user {} to user {}", chatMessage.getSenderId(), chatMessage.getReceiverId());
+        } else {
+            log.warn("Failed to send private message to user {}, user may be offline", chatMessage.getReceiverId());
+            // 如果不在线，可以考虑存储离线消息，或通过其他方式推送（如APNS, FCM）
         }
-        // 如果不在线，可以考虑存储离线消息，或通过其他方式推送（如APNS, FCM）
     }
 
     @Override
@@ -80,20 +79,15 @@ public class ChatServiceImpl implements ChatService {
         // 保存消息到数据库
         Message message = convertToMessageEntity(chatMessage);
         messageMapper.insert(message);
-        // 查找群组的ChannelGroup
-        ChannelGroup channelGroup = sessionManager.getChannelGroupByGroupId(chatMessage.getGroupId());
-        // 如果群组存在且有在线成员，广播消息
-        if (channelGroup != null) {
-            try {
-                // 注意：这里会将消息也发给发送者自己，客户端需要根据senderId判断是否是自己发的消息
-                channelGroup.writeAndFlush(new TextWebSocketFrame(objectMapper.writeValueAsString(chatMessage)));
-            } catch (JsonProcessingException e) {
-                log.error("Error converting ChatMessage to JSON: {}", e.getMessage());
-            }
-        }
+        
+        // 使用推送服务发送群组消息
+        chatMessage.setAction(ChatMessage.ActionType.PUSH_MESSAGE);
+        int count = pushService.pushMessageToGroup(chatMessage.getGroupId(), chatMessage);
+        
+        log.info("Group message sent from user {} to group {}, delivered to {} users", 
+                chatMessage.getSenderId(), chatMessage.getGroupId(), count);
     }
 
-    // DTO to Entity converter
     private Message convertToMessageEntity(ChatMessage dto) {
         Message entity = new Message();
         entity.setSenderId(dto.getSenderId());

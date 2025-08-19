@@ -17,12 +17,13 @@ import xlike.top.nettydemo.properties.NettyProperties;
 
 /**
  * Netty 服务器的 Channel 初始化器
+ *
  * @author Administrator
  */
 @Slf4j
 @Component
 public class NettyServerInitializer extends ChannelInitializer<SocketChannel> {
-    
+
     private final NettyProperties props;
     private final AuthHandler authHandler;
     private final HttpRouterHandler httpRouterHandler;
@@ -49,21 +50,19 @@ public class NettyServerInitializer extends ChannelInitializer<SocketChannel> {
         p.addLast("httpAggregator", new HttpObjectAggregator(65536));
         p.addLast("idleStateHandler", new IdleStateHandler(
                 props.getReaderIdleSeconds(), props.getWriterIdleSeconds(), 0));
-        // 认证 Handler：所有 HTTP 请求都会先经过这里
+        // 认证 Handler-所有 HTTP 请求都会先经过这里 - 因为需要验证Token
         p.addLast("authHandler", authHandler);
-        // 自定义 HTTP 路由处理器
-        // 处理非 WebSocket 的普通 HTTP 请求
+        // 自定义 HTTP 路由处理器 - 处理非 WebSocket 的普通 HTTP 请求
         p.addLast("httpRouter", httpRouterHandler);
         // WebSocket 协议处理器 - 使用自定义配置来处理查询参数
         WebSocketServerProtocolConfig config = WebSocketServerProtocolConfig.newBuilder()
                 .websocketPath(props.getWebsocketPath())
-                // 允许路径以指定路径开始（处理查询参数）
+                // 允许路径以指定路径开始（处理查询参数） http请求握手 后面都会有 ?token=xxx
                 .checkStartsWith(true)
                 .maxFramePayloadLength(props.getMaxWsFrameSize())
                 .build();
         WebSocketServerProtocolHandler wsProtocolHandler = new WebSocketServerProtocolHandler(config);
         p.addLast("webSocketProtocol", wsProtocolHandler);
-        log.info("WebSocket protocol handler configured for path: {} (with query params support)", props.getWebsocketPath());
         // 只有在 WebSocket 握手成功后，这个 Handler 才会收到消息（WebSocketFrame）
         p.addLast("webSocketFrameHandler", wsHandler);
     }

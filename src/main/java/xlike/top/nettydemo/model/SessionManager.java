@@ -5,6 +5,7 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.GlobalEventExecutor;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 
@@ -100,5 +101,81 @@ public final class SessionManager {
      */
     public ChannelGroup getChannelGroupByGroupId(Long groupId) {
         return groupChannelGroupMap.get(groupId);
+    }
+
+    /**
+     * 获取指定用户的Channel (推送服务使用的方法名)
+     *
+     * @param userId 用户ID
+     * @return Channel，如果用户不在线则返回null
+     */
+    public Channel getUserChannel(Long userId) {
+        return userChannelMap.get(userId);
+    }
+
+    /**
+     * 获取群组的所有Channel集合 (推送服务使用的方法名)
+     *
+     * @param groupId 群组ID
+     * @return Set<Channel>，如果群组不存在则返回空Set
+     */
+    public Set<Channel> getGroupChannels(Long groupId) {
+        ChannelGroup channelGroup = groupChannelGroupMap.get(groupId);
+        return channelGroup != null ? channelGroup : Set.of();
+    }
+
+    /**
+     * 获取所有在线用户的ID集合
+     *
+     * @return Set<Long> 在线用户ID集合
+     */
+    public Set<Long> getOnlineUsers() {
+        return userChannelMap.keySet();
+    }
+
+    /**
+     * 获取在线用户数量
+     *
+     * @return 在线用户数量
+     */
+    public int getOnlineUserCount() {
+        return userChannelMap.size();
+    }
+
+    /**
+     * 检查用户是否在线
+     *
+     * @param userId 用户ID
+     * @return 是否在线
+     */
+    public boolean isUserOnline(Long userId) {
+        Channel channel = userChannelMap.get(userId);
+        return channel != null && channel.isActive();
+    }
+
+    /**
+     * 移除用户离开的群组
+     *
+     * @param groupId 群组ID
+     * @param channel 用户Channel
+     */
+    public void leaveGroup(Long groupId, Channel channel) {
+        ChannelGroup channelGroup = groupChannelGroupMap.get(groupId);
+        if (channelGroup != null) {
+            channelGroup.remove(channel);
+            // 如果群组没有成员了，可以选择移除群组
+            if (channelGroup.isEmpty()) {
+                groupChannelGroupMap.remove(groupId);
+            }
+        }
+    }
+
+    /**
+     * 获取所有活跃的Channel
+     *
+     * @return Set<Channel> 所有活跃Channel集合
+     */
+    public Set<Channel> getAllActiveChannels() {
+        return Set.copyOf(userChannelMap.values());
     }
 }
