@@ -3,20 +3,26 @@ package xlike.top.nettydemo.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import xlike.top.nettydemo.model.ChatMessage;
+import xlike.top.nettydemo.common.R;
+import xlike.top.nettydemo.pojo.domain.Message;
+import xlike.top.nettydemo.enums.MessageType;
 import xlike.top.nettydemo.model.SessionManager;
+import xlike.top.nettydemo.model.WsEnvelope;
+import xlike.top.nettydemo.utils.IdGenerator;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 /**
+ * 需要自己处理后续保存数据入库的功能
  * WebSocket 服务端主动推送服务
  * 提供各种推送消息给客户端的方法
+ *
  * @author Administrator
  */
 @Slf4j
@@ -25,6 +31,7 @@ public class WebSocketPushService {
 
     private final ObjectMapper objectMapper;
     private final SessionManager sessionManager;
+    private final IdGenerator idGenerator = new IdGenerator(1, 1);
 
     public WebSocketPushService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -32,232 +39,207 @@ public class WebSocketPushService {
     }
 
     /**
-     * 推送消息给指定用户
-     * @param userId 用户ID
-     * @param message 聊天消息
-     * @return 是否推送成功
+     * 核心统一封装方法
      */
-    public boolean pushMessageToUser(Long userId, ChatMessage message) {
+    private <T> void sendResponse(Channel channel, WsEnvelope.ActionType action, T data) throws JsonProcessingException {
+        R<T> response = R.ok(action.name(), data);
+        String json = objectMapper.writeValueAsString(response);
+        channel.writeAndFlush(new TextWebSocketFrame(json));
+    }
+
+    public <T> void sendResponse(ChannelHandlerContext ctx, WsEnvelope.ActionType action, T data) {
+        try {
+            R<T> response = R.ok(action.name(), data);
+            String json = objectMapper.writeValueAsString(response);
+            ctx.channel().writeAndFlush(new TextWebSocketFrame(json));
+        } catch (JsonProcessingException e) {
+            log.error("Failed to send response for action {}", action, e);
+        }
+    }
+
+
+    /**
+     * 推送消息给指定用户
+     */
+    public boolean pushMessageToUser(Long userId, WsEnvelope<?> envelope) {
         try {
             Channel channel = sessionManager.getUserChannel(userId);
             if (channel != null && channel.isActive()) {
-                message.setMessageId(UUID.randomUUID().toString());
-                message.setSendTime(LocalDateTime.now());
-                String json = objectMapper.writeValueAsString(message);
-                channel.writeAndFlush(new TextWebSocketFrame(json));
-                log.info("Message pushed to user {}: {}", userId, message.getAction());
+                if (envelope.getData() instanceof Message msg) {
+                    msg.setId(idGenerator.nextId());
+                    msg.setSendTime(LocalDateTime.now());
+                }
+                sendResponse(channel, envelope.getAction(), envelope.getData());
                 return true;
             } else {
                 log.warn("User {} is not online, message not sent", userId);
                 return false;
             }
         } catch (JsonProcessingException e) {
-            log.error("Failed to serialize message for user {}", userId, e);
+            log.error("Failed to serialize message for user {},{}", userId, e.getMessage());
             return false;
         }
     }
 
     /**
      * 推送通知消息给指定用户
-     * @param userId 用户ID
-     * @param title 通知标题
-     * @param content 通知内容
-     * @return 是否推送成功
      */
     public boolean pushNotificationToUser(Long userId, String title, String content) {
-        ChatMessage notification = new ChatMessage();
-        notification.setAction(ChatMessage.ActionType.PUSH_NOTIFICATION);
-        notification.setMessageType(ChatMessage.MessageType.SYSTEM);
+        Message notification = new Message();
+        notification.setMessageType(MessageType.SYSTEM);
         notification.setContent(content);
         notification.setSenderNickname(title);
-        return pushMessageToUser(userId, notification);
+
+        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_NOTIFICATION, notification);
+        return pushMessageToUser(userId, envelope);
     }
 
     /**
      * 推送系统消息给指定用户
-     * @param userId 用户ID
-     * @param content 系统消息内容
-     * @return 是否推送成功
      */
     public boolean pushSystemMessageToUser(Long userId, String content) {
-        ChatMessage systemMessage = new ChatMessage();
-        systemMessage.setAction(ChatMessage.ActionType.PUSH_SYSTEM_MESSAGE);
-        systemMessage.setMessageType(ChatMessage.MessageType.SYSTEM);
+        Message systemMessage = new Message();
+        systemMessage.setMessageType(MessageType.SYSTEM);
         systemMessage.setContent(content);
         systemMessage.setSenderNickname("系统消息");
-        return pushMessageToUser(userId, systemMessage);
+
+        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_SYSTEM_MESSAGE, systemMessage);
+        return pushMessageToUser(userId, envelope);
     }
 
     /**
-     * 推送数据给指定用户
-     * @param userId 用户ID
-     * @param action 动作类型
-     * @param data 数据内容
-     * @return 是否推送成功
+     * 推送任意数据给指定用户
      */
-    public boolean pushDataToUser(Long userId, ChatMessage.ActionType action, Object data) {
-        ChatMessage message = new ChatMessage();
-        message.setAction(action);
-        message.setData(data);
-        return pushMessageToUser(userId, message);
+    public boolean pushDataToUser(Long userId, WsEnvelope.ActionType action, Object data) {
+        WsEnvelope<Object> envelope = new WsEnvelope<>(action, data);
+        return pushMessageToUser(userId, envelope);
     }
 
     /**
      * 广播消息给所有在线用户
-     * @param message 聊天消息
-     * @return 成功推送的用户数量
      */
-    public int broadcastMessageToAllUsers(ChatMessage message) {
+    public int broadcastMessageToAllUsers(WsEnvelope<?> envelope) {
         Set<Long> onlineUsers = sessionManager.getOnlineUsers();
         int successCount = 0;
-        
-        message.setMessageId(UUID.randomUUID().toString());
-        message.setSendTime(LocalDateTime.now());
-        
+
+        if (envelope.getData() instanceof Message msg) {
+            msg.setId(idGenerator.nextId());
+            msg.setSendTime(LocalDateTime.now());
+        }
+
         for (Long userId : onlineUsers) {
             try {
                 Channel channel = sessionManager.getUserChannel(userId);
                 if (channel != null && channel.isActive()) {
-                    String json = objectMapper.writeValueAsString(message);
-                    channel.writeAndFlush(new TextWebSocketFrame(json));
+                    sendResponse(channel, envelope.getAction(), envelope.getData());
                     successCount++;
                 }
             } catch (JsonProcessingException e) {
                 log.error("Failed to broadcast message to user {}", userId, e);
             }
         }
-        
+
         log.info("Broadcast message sent to {}/{} users", successCount, onlineUsers.size());
         return successCount;
     }
 
     /**
-     * 广播通知给所有在线用户
-     * @param title 通知标题
-     * @param content 通知内容
-     * @return 成功推送的用户数量
+     * 推送消息给群组
      */
-    public int broadcastNotificationToAllUsers(String title, String content) {
-        ChatMessage notification = new ChatMessage();
-        notification.setAction(ChatMessage.ActionType.PUSH_BROADCAST);
-        notification.setMessageType(ChatMessage.MessageType.SYSTEM);
-        notification.setContent(content);
-        notification.setSenderNickname(title);
-        return broadcastMessageToAllUsers(notification);
-    }
-
-    /**
-     * 推送消息给群组内所有用户
-     * @param groupId 群组ID
-     * @param message 聊天消息
-     * @return 成功推送的用户数量
-     */
-    public int pushMessageToGroup(Long groupId, ChatMessage message) {
+    public int pushMessageToGroup(Long groupId, WsEnvelope<?> envelope) {
         Set<Channel> groupChannels = sessionManager.getGroupChannels(groupId);
         int successCount = 0;
-        
-        message.setMessageId(UUID.randomUUID().toString());
-        message.setSendTime(LocalDateTime.now());
-        message.setGroupId(groupId);
-        
+
+        if (envelope.getData() instanceof Message msg) {
+            msg.setId(idGenerator.nextId());
+            msg.setSendTime(LocalDateTime.now());
+            msg.setGroupId(groupId);
+        }
+
         for (Channel channel : groupChannels) {
             if (channel.isActive()) {
                 try {
-                    String json = objectMapper.writeValueAsString(message);
-                    channel.writeAndFlush(new TextWebSocketFrame(json));
+                    sendResponse(channel, envelope.getAction(), envelope.getData());
                     successCount++;
                 } catch (JsonProcessingException e) {
                     log.error("Failed to send message to group {} channel", groupId, e);
                 }
             }
         }
-        
         log.info("Message sent to {}/{} users in group {}", successCount, groupChannels.size(), groupId);
         return successCount;
     }
 
     /**
      * 推送群组通知
-     * @param groupId 群组ID
-     * @param title 通知标题
-     * @param content 通知内容
-     * @return 成功推送的用户数量
      */
     public int pushGroupNotification(Long groupId, String title, String content) {
-        ChatMessage notification = new ChatMessage();
-        notification.setAction(ChatMessage.ActionType.PUSH_GROUP_UPDATE);
-        notification.setMessageType(ChatMessage.MessageType.SYSTEM);
+        Message notification = new Message();
+        notification.setMessageType(MessageType.SYSTEM);
         notification.setContent(content);
         notification.setSenderNickname(title);
-        return pushMessageToGroup(groupId, notification);
+
+        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_GROUP_UPDATE, notification);
+        return pushMessageToGroup(groupId, envelope);
     }
 
     /**
-     * 推送在线用户列表给指定用户
-     * @param userId 用户ID
-     * @return 是否推送成功
+     * 推送在线用户列表
      */
     public boolean pushOnlineUsersToUser(Long userId) {
         Set<Long> onlineUsers = sessionManager.getOnlineUsers();
-        ChatMessage message = new ChatMessage();
-        message.setAction(ChatMessage.ActionType.PUSH_ONLINE_USERS);
-        message.setData(onlineUsers);
-        return pushMessageToUser(userId, message);
+        WsEnvelope<Set<Long>> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_ONLINE_USERS, onlineUsers);
+        return pushMessageToUser(userId, envelope);
     }
 
     /**
-     * 推送用户状态变更消息
-     * @param userId 状态变更的用户ID
-     * @param status 用户状态 (online/offline/busy等)
-     * @param excludeUserId 排除的用户ID（通常是状态变更的用户自己）
-     * @return 成功推送的用户数量
+     * 推送用户状态变更
      */
     public int pushUserStatusChange(Long userId, String status, Long excludeUserId) {
-        ChatMessage statusMessage = new ChatMessage();
-        statusMessage.setAction(ChatMessage.ActionType.PUSH_USER_STATUS);
+        Message statusMessage = new Message();
         statusMessage.setSenderId(userId);
         statusMessage.setContent(status);
-        
+
+        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_USER_STATUS, statusMessage);
+
         Set<Long> onlineUsers = sessionManager.getOnlineUsers();
         int successCount = 0;
-        
+
         for (Long targetUserId : onlineUsers) {
             if (!targetUserId.equals(excludeUserId)) {
-                if (pushMessageToUser(targetUserId, statusMessage)) {
+                if (pushMessageToUser(targetUserId, envelope)) {
                     successCount++;
                 }
             }
         }
-        
+
         log.info("User {} status change ({}) sent to {} users", userId, status, successCount);
         return successCount;
     }
 
     /**
-     * 推送指定用户列表
-     * @param userIds 用户ID列表
-     * @param message 聊天消息
-     * @return 成功推送的用户数量
+     * 推送消息给指定用户列表
      */
-    public int pushMessageToUsers(List<Long> userIds, ChatMessage message) {
+    public int pushMessageToUsers(List<Long> userIds, WsEnvelope<?> envelope) {
         int successCount = 0;
-        
-        message.setMessageId(UUID.randomUUID().toString());
-        message.setSendTime(LocalDateTime.now());
-        
+
+        if (envelope.getData() instanceof Message msg) {
+            msg.setId(idGenerator.nextId());
+            msg.setSendTime(LocalDateTime.now());
+        }
+
         for (Long userId : userIds) {
-            if (pushMessageToUser(userId, message)) {
+            if (pushMessageToUser(userId, envelope)) {
                 successCount++;
             }
         }
-        
+
         log.info("Message sent to {}/{} specified users", successCount, userIds.size());
         return successCount;
     }
 
     /**
      * 获取当前在线用户数量
-     * @return 在线用户数量
      */
     public int getOnlineUserCount() {
         return sessionManager.getOnlineUsers().size();
@@ -265,7 +247,6 @@ public class WebSocketPushService {
 
     /**
      * 获取当前在线用户列表
-     * @return 在线用户ID集合
      */
     public Set<Long> getOnlineUsers() {
         return sessionManager.getOnlineUsers();
@@ -273,8 +254,6 @@ public class WebSocketPushService {
 
     /**
      * 检查用户是否在线
-     * @param userId 用户ID
-     * @return 是否在线
      */
     public boolean isUserOnline(Long userId) {
         Channel channel = sessionManager.getUserChannel(userId);

@@ -1,7 +1,7 @@
 package xlike.top.nettydemo.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import xlike.top.nettydemo.entity.ChatGroup;
+import xlike.top.nettydemo.pojo.domain.ChatGroup;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package xlike.top.nettydemo.entity;
+package xlike.top.nettydemo.pojo.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -7,12 +7,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("group_member")
-public class GroupMember {
+@TableName("user")
+public class User {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private Long groupId;
-    private Long userId;
-    private String memberNickname;
-    private LocalDateTime joinTime;
+    private String username;
+    private String password;
+    private String nickname;
+    private String avatar;
+    private LocalDateTime createTime;
 }

@@ -33,6 +33,10 @@
         <div class="row">
             <label></label>
             <button id="loginBtn">登录</button>
+            <button id="healthCheckBtn">健康检查</button>
+        </div>
+        <div class="row">
+            <button id="pingBtn" disabled>发送PING</button>
         </div>
         <div class="row">
             <label>Token:</label>
@@ -123,7 +127,7 @@
         document.getElementById('sendToGroupBtn').disabled = !connected;
     };
 
-    // 1. 登录逻辑
+    // 登录
     document.getElementById('loginBtn').onclick = async () => {
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
@@ -146,14 +150,31 @@
         }
     };
 
-    // 2. 连接WS逻辑
+    // 健康检查
+    document.getElementById('healthCheckBtn').onclick = async () => {
+        log(`➡️ [HTTP] 正在进行健康检查...`);
+        try {
+            const response = await fetch('http://localhost:8090/health', {
+                method: 'GET',
+                headers: { 'Content-Type': 'text/plain' }
+            });
+            if (!response.ok) {
+                throw new Error(`健康检查失败: ${response.status} ${response.statusText}`);
+            }
+            const result = await response.text();
+            log(`✅ [HTTP] 健康检查成功! 响应: ${result}`);
+        } catch (e) {
+            log(`❌ [HTTP] 健康检查错误: ${e.message}`);
+        }
+    };
+
+    // 连接 WebSocket
     document.getElementById('connectBtn').onclick = () => {
         if (!tokenValue) {
             log('❌ [WS] 请先登录获取Token!');
             return;
         }
         let url = document.getElementById('url').value;
-        // 将Token作为查询参数附加到URL
         url += `?token=${tokenValue}`;
 
         ws = new WebSocket(url);
@@ -181,19 +202,33 @@
         }
     };
 
-    // 3. 功能操作逻辑
+    // 功能操作逻辑（统一使用 data 对象）
     document.getElementById('getGroupsBtn').onclick = () => {
-        sendWsJson({ action: 'GET_GROUP_LIST' });
+        sendWsJson({ action: 'GET_GROUP_LIST', data: {} });
     };
+
+    document.getElementById('pingBtn').onclick = () => {
+        sendWsJson({
+            action: 'PING',
+            data: {}
+        });
+    };
+
 
     document.getElementById('getPrivateHistoryBtn').onclick = () => {
         const receiverId = parseInt(document.getElementById('privateUserId').value);
-        sendWsJson({ action: 'GET_PRIVATE_HISTORY', receiverId: receiverId });
+        sendWsJson({
+            action: 'GET_PRIVATE_HISTORY',
+            data: { receiverId: receiverId }
+        });
     };
 
     document.getElementById('getGroupHistoryBtn').onclick = () => {
         const groupId = parseInt(document.getElementById('historyGroupId').value);
-        sendWsJson({ action: 'GET_GROUP_HISTORY', groupId: groupId });
+        sendWsJson({
+            action: 'GET_GROUP_HISTORY',
+            data: { groupId: groupId }
+        });
     };
 
     document.getElementById('sendToUserBtn').onclick = () => {
@@ -201,9 +236,11 @@
         const content = document.getElementById('privateMsgContent').value;
         sendWsJson({
             action: 'SEND_TO_USER',
-            receiverId: receiverId,
-            messageType: 'TEXT',
-            content: content
+            data: {
+                receiverId: receiverId,
+                messageType: 'TEXT',
+                content: content
+            }
         });
     };
 
@@ -212,12 +249,14 @@
         const content = document.getElementById('groupMsgContent').value;
         sendWsJson({
             action: 'SEND_TO_GROUP',
-            groupId: groupId,
-            messageType: 'TEXT',
-            content: content
+            data: {
+                groupId: groupId,
+                messageType: 'TEXT',
+                content: content
+            }
         });
     };
-
 </script>
+
 </body>
 </html>
