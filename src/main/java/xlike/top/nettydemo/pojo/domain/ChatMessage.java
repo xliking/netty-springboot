@@ -11,9 +11,12 @@ import xlike.top.nettydemo.handler.MessageTypeHandler;
 
 import java.time.LocalDateTime;
 
+/**
+ * @author Administrator
+ */
 @Data
-@TableName("message")
-public class Message {
+@TableName("chat_message")
+public class ChatMessage {
 
 
     @TableId(type = IdType.AUTO)

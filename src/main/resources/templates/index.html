@@ -146,7 +146,7 @@
             log(`✅ [HTTP] 登录成功! Token: ${tokenValue.substring(0, 20)}...`);
             setLoginState(true);
         } catch (e) {
-            log(`❌ [HTTP] 登录错误: ${e.message}`);
+            log(`❌ [HTTP] 登录错误: ${e.chatMessage}`);
         }
     };
 
@@ -164,7 +164,7 @@
             const result = await response.text();
             log(`✅ [HTTP] 健康检查成功! 响应: ${result}`);
         } catch (e) {
-            log(`❌ [HTTP] 健康检查错误: ${e.message}`);
+            log(`❌ [HTTP] 健康检查错误: ${e.chatMessage}`);
         }
     };
 

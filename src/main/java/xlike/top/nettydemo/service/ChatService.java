@@ -1,7 +1,7 @@
 package xlike.top.nettydemo.service;
 
 import xlike.top.nettydemo.pojo.domain.ChatGroup;
-import xlike.top.nettydemo.pojo.domain.Message;
+import xlike.top.nettydemo.pojo.domain.ChatMessage;
 
 import java.util.List;
 
@@ -29,7 +29,7 @@ public interface ChatService {
      * @param userId2 用户2
      * @return 聊天记录
      */
-    List<Message> getPrivateChatHistory(Long userId1, Long userId2);
+    List<ChatMessage> getPrivateChatHistory(Long userId1, Long userId2);
 
     /**
      * 获取群聊的聊天记录
@@ -37,19 +37,19 @@ public interface ChatService {
      * @param groupId 群组ID
      * @return 聊天记录
      */
-    List<Message> getGroupChatHistory(Long groupId);
+    List<ChatMessage> getGroupChatHistory(Long groupId);
 
     /**
      * 保存单聊消息
      *
-     * @param message 单聊消息
+     * @param chatMessage 单聊消息
      */
-    void savePrivateMessage(Message message);
+    void savePrivateMessage(ChatMessage chatMessage);
 
     /**
      * 保存群聊消息
      *
-     * @param message 群聊消息
+     * @param chatMessage 群聊消息
      */
-    void saveGroupMessage(Message message);
+    void saveGroupMessage(ChatMessage chatMessage);
 }

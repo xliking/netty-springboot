@@ -8,7 +8,7 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import xlike.top.nettydemo.common.R;
-import xlike.top.nettydemo.pojo.domain.Message;
+import xlike.top.nettydemo.pojo.domain.ChatMessage;
 import xlike.top.nettydemo.enums.MessageType;
 import xlike.top.nettydemo.model.SessionManager;
 import xlike.top.nettydemo.model.WsEnvelope;
@@ -79,7 +79,7 @@ public class WebSocketPushService {
         try {
             Channel channel = sessionManager.getUserChannel(userId);
             if (channel != null && channel.isActive()) {
-                if (envelope.getData() instanceof Message msg) {
+                if (envelope.getData() instanceof ChatMessage msg) {
                     msg.setId(idGenerator.nextId());
                     msg.setSendTime(LocalDateTime.now());
                 }
@@ -99,12 +99,12 @@ public class WebSocketPushService {
      * 推送通知消息给指定用户
      */
     public boolean pushNotificationToUser(Long userId, String title, String content) {
-        Message notification = new Message();
+        ChatMessage notification = new ChatMessage();
         notification.setMessageType(MessageType.SYSTEM);
         notification.setContent(content);
         notification.setSenderNickname(title);
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_NOTIFICATION, notification);
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_NOTIFICATION, notification);
         return pushMessageToUser(userId, envelope);
     }
 
@@ -112,12 +112,12 @@ public class WebSocketPushService {
      * 推送系统消息给指定用户
      */
     public boolean pushSystemMessageToUser(Long userId, String content) {
-        Message systemMessage = new Message();
-        systemMessage.setMessageType(MessageType.SYSTEM);
-        systemMessage.setContent(content);
-        systemMessage.setSenderNickname("系统消息");
+        ChatMessage systemChatMessage = new ChatMessage();
+        systemChatMessage.setMessageType(MessageType.SYSTEM);
+        systemChatMessage.setContent(content);
+        systemChatMessage.setSenderNickname("系统消息");
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_SYSTEM_MESSAGE, systemMessage);
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_SYSTEM_MESSAGE, systemChatMessage);
         return pushMessageToUser(userId, envelope);
     }
 
@@ -136,7 +136,7 @@ public class WebSocketPushService {
         Set<Long> onlineUsers = sessionManager.getOnlineUsers();
         int successCount = 0;
 
-        if (envelope.getData() instanceof Message msg) {
+        if (envelope.getData() instanceof ChatMessage msg) {
             msg.setId(idGenerator.nextId());
             msg.setSendTime(LocalDateTime.now());
         }
@@ -164,7 +164,7 @@ public class WebSocketPushService {
         Set<Channel> groupChannels = sessionManager.getGroupChannels(groupId);
         int successCount = 0;
 
-        if (envelope.getData() instanceof Message msg) {
+        if (envelope.getData() instanceof ChatMessage msg) {
             msg.setId(idGenerator.nextId());
             msg.setSendTime(LocalDateTime.now());
             msg.setGroupId(groupId);
@@ -188,12 +188,12 @@ public class WebSocketPushService {
      * 推送群组通知
      */
     public int pushGroupNotification(Long groupId, String title, String content) {
-        Message notification = new Message();
+        ChatMessage notification = new ChatMessage();
         notification.setMessageType(MessageType.SYSTEM);
         notification.setContent(content);
         notification.setSenderNickname(title);
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_GROUP_UPDATE, notification);
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_GROUP_UPDATE, notification);
         return pushMessageToGroup(groupId, envelope);
     }
 
@@ -210,11 +210,11 @@ public class WebSocketPushService {
      * 推送用户状态变更
      */
     public int pushUserStatusChange(Long userId, String status, Long excludeUserId) {
-        Message statusMessage = new Message();
-        statusMessage.setSenderId(userId);
-        statusMessage.setContent(status);
+        ChatMessage statusChatMessage = new ChatMessage();
+        statusChatMessage.setSenderId(userId);
+        statusChatMessage.setContent(status);
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_USER_STATUS, statusMessage);
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_USER_STATUS, statusChatMessage);
 
         Set<Long> onlineUsers = sessionManager.getOnlineUsers();
         int successCount = 0;
@@ -237,7 +237,7 @@ public class WebSocketPushService {
     public int pushMessageToUsers(List<Long> userIds, WsEnvelope<?> envelope) {
         int successCount = 0;
 
-        if (envelope.getData() instanceof Message msg) {
+        if (envelope.getData() instanceof ChatMessage msg) {
             msg.setId(idGenerator.nextId());
             msg.setSendTime(LocalDateTime.now());
         }

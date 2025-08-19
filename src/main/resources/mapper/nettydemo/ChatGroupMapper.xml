@@ -1,18 +1,50 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper
-        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
 <mapper namespace="xlike.top.nettydemo.mapper.ChatGroupMapper">
 
+    <!-- 根据用户ID查找群组列表 -->
     <select id="findGroupsByUserId" resultType="xlike.top.nettydemo.pojo.domain.ChatGroup">
-        SELECT
-            g.*
-        FROM
-            chat_group g
-                JOIN
-            group_member gm ON g.id = gm.group_id
-        WHERE
-            gm.user_id = #{userId}
+        SELECT g.id, g.name, g.description
+        FROM chat_group g
+                 JOIN group_user gu ON g.id = gu.group_id
+        WHERE gu.user_id = #{userId}
     </select>
+
+    <!-- 判断用户是否在群组内 -->
+    <select id="checkUserInGroup" resultType="int">
+        SELECT COUNT(1)
+        FROM group_user
+        WHERE group_id = #{groupId}
+          AND user_id = #{userId}
+    </select>
+
+    <!-- 获取群组内所有成员ID -->
+    <select id="findUserIdsByGroupId" resultType="long">
+        SELECT user_id
+        FROM group_user
+        WHERE group_id = #{groupId}
+    </select>
+
+    <!-- 统计群组成员数量 -->
+    <select id="countUsersInGroup" resultType="int">
+        SELECT COUNT(1)
+        FROM group_user
+        WHERE group_id = #{groupId}
+    </select>
+
+    <!-- 从群组中移除用户 -->
+    <delete id="removeUserFromGroup">
+        DELETE FROM group_user
+        WHERE group_id = #{groupId}
+          AND user_id = #{userId}
+    </delete>
+
+    <!-- 往群组中添加用户 -->
+    <insert id="addUserToGroup">
+        INSERT INTO group_user(group_id, user_id)
+        VALUES (#{groupId}, #{userId})
+    </insert>
 
 </mapper>

@@ -3,7 +3,7 @@ package xlike.top.nettydemo.controller;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
-import xlike.top.nettydemo.pojo.domain.Message;
+import xlike.top.nettydemo.pojo.domain.ChatMessage;
 import xlike.top.nettydemo.enums.MessageType;
 import xlike.top.nettydemo.model.WsEnvelope;
 import xlike.top.nettydemo.service.WebSocketPushService;
@@ -31,14 +31,14 @@ public class WebSocketPushController {
      */
     @PostMapping("/user/{userId}")
     public ApiResponse pushToUser(@PathVariable Long userId, @RequestBody PushMessageRequest request) {
-        Message message = new Message();
-        message.setMessageType(MessageType.TEXT);
-        message.setContent(request.getContent());
-        message.setSenderNickname(request.getSenderName());
+        ChatMessage chatMessage = new ChatMessage();
+        chatMessage.setMessageType(MessageType.TEXT);
+        chatMessage.setContent(request.getContent());
+        chatMessage.setSenderNickname(request.getSenderName());
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>();
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>();
         envelope.setAction(WsEnvelope.ActionType.PUSH_MESSAGE);
-        envelope.setData(message);
+        envelope.setData(chatMessage);
 
         boolean success = pushService.pushMessageToUser(userId, envelope);
         return success ? ApiResponse.success("消息推送成功") : ApiResponse.error("用户不在线或推送失败");
@@ -67,14 +67,14 @@ public class WebSocketPushController {
      */
     @PostMapping("/broadcast")
     public ApiResponse broadcastToAllUsers(@RequestBody PushMessageRequest request) {
-        Message message = new Message();
-        message.setMessageType(MessageType.TEXT);
-        message.setContent(request.getContent());
-        message.setSenderNickname(request.getSenderName());
+        ChatMessage chatMessage = new ChatMessage();
+        chatMessage.setMessageType(MessageType.TEXT);
+        chatMessage.setContent(request.getContent());
+        chatMessage.setSenderNickname(request.getSenderName());
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>();
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>();
         envelope.setAction(WsEnvelope.ActionType.PUSH_BROADCAST);
-        envelope.setData(message);
+        envelope.setData(chatMessage);
 
         int count = pushService.broadcastMessageToAllUsers(envelope);
         return ApiResponse.success("广播消息已发送给 " + count + " 个用户");
@@ -85,14 +85,14 @@ public class WebSocketPushController {
      */
     @PostMapping("/group/{groupId}")
     public ApiResponse pushToGroup(@PathVariable Long groupId, @RequestBody PushMessageRequest request) {
-        Message message = new Message();
-        message.setMessageType(MessageType.TEXT);
-        message.setContent(request.getContent());
-        message.setSenderNickname(request.getSenderName());
+        ChatMessage chatMessage = new ChatMessage();
+        chatMessage.setMessageType(MessageType.TEXT);
+        chatMessage.setContent(request.getContent());
+        chatMessage.setSenderNickname(request.getSenderName());
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>();
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>();
         envelope.setAction(WsEnvelope.ActionType.PUSH_MESSAGE);
-        envelope.setData(message);
+        envelope.setData(chatMessage);
 
         int count = pushService.pushMessageToGroup(groupId, envelope);
         return ApiResponse.success("群组消息已发送给 " + count + " 个用户");
@@ -112,14 +112,14 @@ public class WebSocketPushController {
      */
     @PostMapping("/users")
     public ApiResponse pushToUsers(@RequestBody PushToUsersRequest request) {
-        Message message = new Message();
-        message.setMessageType(MessageType.TEXT);
-        message.setContent(request.getContent());
-        message.setSenderNickname(request.getSenderName());
+        ChatMessage chatMessage = new ChatMessage();
+        chatMessage.setMessageType(MessageType.TEXT);
+        chatMessage.setContent(request.getContent());
+        chatMessage.setSenderNickname(request.getSenderName());
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>();
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>();
         envelope.setAction(WsEnvelope.ActionType.PUSH_MESSAGE);
-        envelope.setData(message);
+        envelope.setData(chatMessage);
 
         int count = pushService.pushMessageToUsers(request.getUserIds(), envelope);
         return ApiResponse.success("消息已发送给 " + count + "/" + request.getUserIds().size() + " 个用户");

@@ -1,11 +1,11 @@
 package xlike.top.nettydemo.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import xlike.top.nettydemo.pojo.domain.Message;
+import xlike.top.nettydemo.pojo.domain.ChatMessage;
 
 /**
  * @author Administrator
  */
-public interface MessageMapper extends BaseMapper<Message> {
+public interface MessageMapper extends BaseMapper<ChatMessage> {
 
 }

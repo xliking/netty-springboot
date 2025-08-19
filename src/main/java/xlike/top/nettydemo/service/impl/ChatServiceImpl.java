@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import xlike.top.nettydemo.pojo.domain.ChatGroup;
-import xlike.top.nettydemo.pojo.domain.Message;
+import xlike.top.nettydemo.pojo.domain.ChatMessage;
 import xlike.top.nettydemo.mapper.ChatGroupMapper;
 import xlike.top.nettydemo.mapper.MessageMapper;
 import xlike.top.nettydemo.model.WsEnvelope;
@@ -41,48 +41,49 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public List<Message> getPrivateChatHistory(Long userId1, Long userId2) {
-        LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
-        wrapper.nested(w -> w.eq(Message::getSenderId, userId1).eq(Message::getReceiverId, userId2))
-                .or(w -> w.eq(Message::getSenderId, userId2).eq(Message::getReceiverId, userId1));
-        wrapper.orderByAsc(Message::getSendTime);
+    public List<ChatMessage> getPrivateChatHistory(Long userId1, Long userId2) {
+        LambdaQueryWrapper<ChatMessage> wrapper = new LambdaQueryWrapper<>();
+        wrapper.nested(w -> w.eq(ChatMessage::getSenderId, userId1).eq(ChatMessage::getReceiverId, userId2))
+                .or(w -> w.eq(ChatMessage::getSenderId, userId2).eq(ChatMessage::getReceiverId, userId1));
+        wrapper.orderByAsc(ChatMessage::getSendTime);
         return messageMapper.selectList(wrapper);
     }
 
     @Override
-    public List<Message> getGroupChatHistory(Long groupId) {
-        LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Message::getGroupId, groupId).orderByAsc(Message::getSendTime);
+    public List<ChatMessage> getGroupChatHistory(Long groupId) {
+        LambdaQueryWrapper<ChatMessage> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ChatMessage::getGroupId, groupId).orderByAsc(ChatMessage::getSendTime);
         return messageMapper.selectList(wrapper);
     }
 
     @Override
-    public void savePrivateMessage(Message message) {
-        message.setSendTime(LocalDateTime.now());
-        message.setIsRead(0);
-        messageMapper.insert(message);
+    public void savePrivateMessage(ChatMessage chatMessage) {
+        chatMessage.setSendTime(LocalDateTime.now());
+        chatMessage.setIsRead(0);
+        messageMapper.insert(chatMessage);
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_MESSAGE, message);
-        boolean success = pushService.pushMessageToUser(message.getReceiverId(), envelope);
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_MESSAGE, chatMessage);
+        boolean success = pushService.pushMessageToUser(chatMessage.getReceiverId(), envelope);
 
         if (success) {
-            log.info("Private message sent from user {} to user {}", message.getSenderId(), message.getReceiverId());
+            log.info("Private message sent from user {} to user {}", chatMessage.getSenderId(), chatMessage.getReceiverId());
         } else {
-            log.warn("Failed to send private message to user {}, user may be offline", message.getReceiverId());
+            log.warn("Failed to send private message to user {}, user may be offline", chatMessage.getReceiverId());
             // TODO: 离线消息存储 或 接入第三方推送（APNS, FCM）
         }
     }
 
     @Override
-    public void saveGroupMessage(Message message) {
-        message.setSendTime(LocalDateTime.now());
-        message.setIsRead(0);
-        messageMapper.insert(message);
+    public void saveGroupMessage(ChatMessage chatMessage) {
 
-        WsEnvelope<Message> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_MESSAGE, message);
-        int count = pushService.pushMessageToGroup(message.getGroupId(), envelope);
+        chatMessage.setSendTime(LocalDateTime.now());
+        chatMessage.setIsRead(0);
+        messageMapper.insert(chatMessage);
+
+        WsEnvelope<ChatMessage> envelope = new WsEnvelope<>(WsEnvelope.ActionType.PUSH_MESSAGE, chatMessage);
+        int count = pushService.pushMessageToGroup(chatMessage.getGroupId(), envelope);
 
         log.info("Group message sent from user {} to group {}, delivered to {} users",
-                message.getSenderId(), message.getGroupId(), count);
+                chatMessage.getSenderId(), chatMessage.getGroupId(), count);
     }
 }

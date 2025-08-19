@@ -1,6 +1,4 @@
 package xlike.top.nettydemo.handler;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -10,12 +8,11 @@ import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.timeout.IdleStateEvent;
 import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import xlike.top.nettydemo.common.R;
 import xlike.top.nettydemo.pojo.domain.ChatGroup;
-import xlike.top.nettydemo.pojo.domain.Message;
+import xlike.top.nettydemo.pojo.domain.ChatMessage;
 import xlike.top.nettydemo.model.SessionManager;
 import xlike.top.nettydemo.model.WsEnvelope;
 import xlike.top.nettydemo.pojo.dto.GroupHistoryRequest;
@@ -47,8 +44,7 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        log.info("WebSocketFrameHandler userEventTriggered: {}", evt.getClass().getSimpleName());
-        // HTTP握手认证
+        // HTTP握手认证完成之后
         if (evt instanceof WebSocketServerProtocolHandler.HandshakeComplete) {
             log.info("WebSocket 握手成功 from: {}", ctx.channel().remoteAddress());
             Long userId = ctx.channel().attr(SessionManager.USER_ID_KEY).get();
@@ -68,16 +64,16 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
             // 心跳检测事件
             switch (idleStateEvent.state()) {
                 case READER_IDLE -> {
-                    log.warn("用户 {} 超过指定时间未发送消息", ctx.channel().remoteAddress());
+//                    log.warn("用户 {} 超过指定时间未发送消息", ctx.channel().attr(SessionManager.USER_ID_KEY).get());
                     R<String> pong = R.ok(WsEnvelope.ActionType.PONG.name(), "alive");
                     String json = objectMapper.writeValueAsString(pong);
                     ctx.channel().writeAndFlush(new TextWebSocketFrame(json));
                 }
                 case WRITER_IDLE -> {
-                    log.debug("服务器一段时间未向 {} 发送消息", ctx.channel().remoteAddress());
+//                    log.warn("服务器一段时间未向用户 {} 发送消息", ctx.channel().attr(SessionManager.USER_ID_KEY).get());
                 }
                 case ALL_IDLE -> {
-                    log.warn("用户 {} 长时间无读写", ctx.channel().remoteAddress());
+//                    log.warn("用户 {} 长时间无读写", ctx.channel().attr(SessionManager.USER_ID_KEY).get());
                 }
             }
         } else {
@@ -115,14 +111,14 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
 
                     case SEND_TO_USER -> {
                         // data 结构: { "receiverId": 2, "messageType": "TEXT", "content": "xxx" }
-                        Message msg = objectMapper.convertValue(envelope.getData(), Message.class);
+                        ChatMessage msg = objectMapper.convertValue(envelope.getData(), ChatMessage.class);
                         msg.setSenderId(currentUserId);
                         chatService.savePrivateMessage(msg);
                     }
 
                     case SEND_TO_GROUP -> {
                         // data 结构: { "groupId": 1, "messageType": "TEXT", "content": "xxx" }
-                        Message msg = objectMapper.convertValue(envelope.getData(), Message.class);
+                        ChatMessage msg = objectMapper.convertValue(envelope.getData(), ChatMessage.class);
                         msg.setSenderId(currentUserId);
                         chatService.saveGroupMessage(msg);
                     }
@@ -145,13 +141,13 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
     }
 
     private void handleGetPrivateHistory(ChannelHandlerContext ctx, Long userId1, Long userId2) {
-        List<Message> messages = chatService.getPrivateChatHistory(userId1, userId2);
-        pushService.sendResponse(ctx, WsEnvelope.ActionType.PUSH_HISTORY, messages);
+        List<ChatMessage> chatMessages = chatService.getPrivateChatHistory(userId1, userId2);
+        pushService.sendResponse(ctx, WsEnvelope.ActionType.PUSH_HISTORY, chatMessages);
     }
 
     private void handleGetGroupHistory(ChannelHandlerContext ctx, Long groupId) {
-        List<Message> messages = chatService.getGroupChatHistory(groupId);
-        pushService.sendResponse(ctx, WsEnvelope.ActionType.PUSH_HISTORY, messages);
+        List<ChatMessage> chatMessages = chatService.getGroupChatHistory(groupId);
+        pushService.sendResponse(ctx, WsEnvelope.ActionType.PUSH_HISTORY, chatMessages);
     }
 
 
