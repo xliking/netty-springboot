@@ -3,18 +3,21 @@ package xlike.top.nettydemo.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import xlike.top.nettydemo.mapper.FriendRequestMapper;
+import xlike.top.nettydemo.mapper.ChatFriendRequestMapper;
 import xlike.top.nettydemo.pojo.domain.FriendRequest;
 import xlike.top.nettydemo.service.FriendRequestService;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * @author Administrator
+ */
 @Service
 @RequiredArgsConstructor
 public class FriendRequestServiceImpl implements FriendRequestService {
 
-    private final FriendRequestMapper friendRequestMapper;
+    private final ChatFriendRequestMapper friendRequestMapper;
 
     @Override
     public boolean sendRequest(Long fromUserId, Long toUserId, String message) {

@@ -8,6 +8,9 @@ import xlike.top.nettydemo.service.FriendService;
 
 import java.util.List;
 
+/**
+ * @author Administrator
+ */
 @RestController
 @RequestMapping("/api/friend")
 @RequiredArgsConstructor

@@ -3,18 +3,21 @@ package xlike.top.nettydemo.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import xlike.top.nettydemo.mapper.FriendGroupMapper;
+import xlike.top.nettydemo.mapper.ChatFriendGroupMapper;
 import xlike.top.nettydemo.pojo.domain.FriendGroup;
 import xlike.top.nettydemo.service.FriendGroupService;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * @author Administrator
+ */
 @Service
 @RequiredArgsConstructor
 public class FriendGroupServiceImpl implements FriendGroupService {
 
-    private final FriendGroupMapper friendGroupMapper;
+    private final ChatFriendGroupMapper friendGroupMapper;
 
     @Override
     public boolean addGroup(Long userId, String name) {

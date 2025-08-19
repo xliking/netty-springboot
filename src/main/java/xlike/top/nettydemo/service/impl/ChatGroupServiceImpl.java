@@ -9,6 +9,9 @@ import xlike.top.nettydemo.service.ChatGroupService;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * @author Administrator
+ */
 @Service
 @RequiredArgsConstructor
 public class ChatGroupServiceImpl implements ChatGroupService {

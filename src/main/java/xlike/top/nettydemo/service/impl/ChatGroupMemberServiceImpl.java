@@ -1,7 +1,6 @@
 package xlike.top.nettydemo.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import xlike.top.nettydemo.mapper.ChatGroupMemberMapper;

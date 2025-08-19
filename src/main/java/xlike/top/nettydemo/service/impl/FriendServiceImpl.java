@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import xlike.top.nettydemo.mapper.ChatFriendMapper;
 import xlike.top.nettydemo.mapper.ChatFriendRequestMapper;
-import xlike.top.nettydemo.mapper.FriendGroupMapper;
+import xlike.top.nettydemo.mapper.ChatFriendGroupMapper;
 import xlike.top.nettydemo.pojo.domain.Friend;
 import xlike.top.nettydemo.pojo.domain.FriendGroup;
 import xlike.top.nettydemo.pojo.domain.FriendRequest;
@@ -24,7 +24,7 @@ import java.util.List;
 public class FriendServiceImpl implements FriendService {
 
     private final ChatFriendMapper friendMapper;
-    private final FriendGroupMapper friendGroupMapper;
+    private final ChatFriendGroupMapper friendGroupMapper;
     private final ChatFriendRequestMapper friendRequestMapper;
 
     /**
