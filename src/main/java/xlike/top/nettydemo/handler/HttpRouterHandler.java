@@ -60,7 +60,6 @@ public class HttpRouterHandler extends SimpleChannelInboundHandler<FullHttpReque
         if (NettyConstants.HEALTH_CHECK_PATH.equals(req.uri())) {
             handleHealthCheck(ctx);
         } else {
-            // 不是健康检查请求
             sendNotFoundResponse(ctx);
         }
     }

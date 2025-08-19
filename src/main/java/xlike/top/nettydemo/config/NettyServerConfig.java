@@ -23,9 +23,9 @@ import xlike.top.nettydemo.properties.NettyProperties;
  * @author Administrator
  */
 @Component
-public class NettyServer implements SmartLifecycle {
+public class NettyServerConfig implements SmartLifecycle {
 
-    private static final Logger log = LoggerFactory.getLogger(NettyServer.class);
+    private static final Logger log = LoggerFactory.getLogger(NettyServerConfig.class);
 
     /**
      * Netty 配置属性
@@ -64,7 +64,7 @@ public class NettyServer implements SmartLifecycle {
      * @param props       Netty 配置
      * @param initializer Channel 初始化器
      */
-    public NettyServer(NettyProperties props, NettyServerInitializer initializer) {
+    public NettyServerConfig(NettyProperties props, NettyServerInitializer initializer) {
         this.props = props;
         this.initializer = initializer;
     }

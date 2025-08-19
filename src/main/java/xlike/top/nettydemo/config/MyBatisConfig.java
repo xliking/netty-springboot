@@ -6,6 +6,9 @@ import org.springframework.context.annotation.Configuration;
 import xlike.top.nettydemo.enums.MessageType;
 import xlike.top.nettydemo.handler.MessageTypeHandler;
 
+/**
+ * @author Administrator
+ */
 @Configuration
 public class MyBatisConfig {
     

@@ -58,12 +58,16 @@ public class WsEnvelope<T> {
      *   PUSH_BROADCAST      -> 推送广播消息（所有人可见）
      */
     public enum ActionType {
+
+
         // ===== 客户端请求 =====
         GET_GROUP_LIST,
         GET_PRIVATE_HISTORY,
         GET_GROUP_HISTORY,
         SEND_TO_USER,
         SEND_TO_GROUP,
+
+
 
         // ===== 服务端推送 =====
         PONG,

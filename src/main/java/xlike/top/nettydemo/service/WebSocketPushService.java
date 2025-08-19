@@ -42,9 +42,13 @@ public class WebSocketPushService {
      * 核心统一封装方法
      */
     private <T> void sendResponse(Channel channel, WsEnvelope.ActionType action, T data) throws JsonProcessingException {
-        R<T> response = R.ok(action.name(), data);
-        String json = objectMapper.writeValueAsString(response);
-        channel.writeAndFlush(new TextWebSocketFrame(json));
+        try {
+            R<T> response = R.ok(action.name(), data);
+            String json = objectMapper.writeValueAsString(response);
+            channel.writeAndFlush(new TextWebSocketFrame(json));
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize response : {}", e.getMessage());
+        }
     }
 
     public <T> void sendResponse(ChannelHandlerContext ctx, WsEnvelope.ActionType action, T data) {
@@ -53,7 +57,17 @@ public class WebSocketPushService {
             String json = objectMapper.writeValueAsString(response);
             ctx.channel().writeAndFlush(new TextWebSocketFrame(json));
         } catch (JsonProcessingException e) {
-            log.error("Failed to send response for action {}", action, e);
+            sendError(ctx, "发送消息失败，未知异常");
+        }
+    }
+
+    public void sendError(ChannelHandlerContext ctx, String errorMsg) {
+        try {
+            R<String> response = R.fail(errorMsg);
+            String json = objectMapper.writeValueAsString(response);
+            ctx.channel().writeAndFlush(new TextWebSocketFrame(json));
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize error response", e);
         }
     }
 

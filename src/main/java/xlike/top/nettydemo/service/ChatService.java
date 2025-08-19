@@ -10,6 +10,7 @@ import java.util.List;
  * 职责：
  *   - 提供聊天相关的数据操作
  *   - 不直接依赖 WebSocket 协议封装（WsEnvelope）
+ * @author Administrator
  */
 public interface ChatService {
 

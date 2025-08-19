@@ -45,11 +45,6 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
     private final ChatService chatService;
     private final WebSocketPushService pushService;
 
-//    public WebSocketFrameHandler(ObjectMapper objectMapper, ChatService chatService) {
-//        this.objectMapper = objectMapper;
-//        this.chatService = chatService;
-//    }
-
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         log.info("WebSocketFrameHandler userEventTriggered: {}", evt.getClass().getSimpleName());
@@ -85,7 +80,7 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
                     log.warn("用户 {} 长时间无读写", ctx.channel().remoteAddress());
                 }
             }
-        }  else {
+        } else {
             super.userEventTriggered(ctx, evt);
         }
     }
@@ -97,9 +92,10 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
             try {
                 WsEnvelope<?> envelope = objectMapper.readValue(jsonMessage, WsEnvelope.class);
                 Long currentUserId = ctx.channel().attr(SessionManager.USER_ID_KEY).get();
-                log.info("Received action: {}", envelope.getAction());
-                log.info("Received data: {}", envelope.getData());
-
+                if (envelope.getAction() == null) {
+                    pushService.sendError(ctx, "消息处理失败: " + "操作不能为空");
+                    return;
+                }
                 switch (envelope.getAction()) {
                     case GET_GROUP_LIST -> handleGetGroupList(ctx, currentUserId);
 
@@ -130,11 +126,14 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
                         msg.setSenderId(currentUserId);
                         chatService.saveGroupMessage(msg);
                     }
-
-                    default -> log.warn("Unknown action received: {}", envelope.getAction());
+                    default -> {
+                        log.warn("Unknown action received: {}", envelope.getAction());
+                        pushService.sendError(ctx, "消息处理失败: 未知操作");
+                    }
                 }
             } catch (Exception e) {
-                log.error("Failed to process WebSocket frame: {}", jsonMessage, e);
+                log.error("Error processing message: {}", e.getMessage());
+                pushService.sendError(ctx, "消息处理失败: " + e.getMessage());
             }
         }
     }
@@ -154,7 +153,6 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
         List<Message> messages = chatService.getGroupChatHistory(groupId);
         pushService.sendResponse(ctx, WsEnvelope.ActionType.PUSH_HISTORY, messages);
     }
-
 
 
     @Override
