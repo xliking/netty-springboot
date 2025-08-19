@@ -8,28 +8,23 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 群组成员实体类
- * 对应表：chat_group_member
- *
- * @author Administrator
+ * 好友分组表
+ * 用户可以将好友分类管理
  */
 @Data
-@TableName("chat_group_member")
-public class ChatGroupMember {
+@TableName("chat_friend_group")
+public class FriendGroup {
 
     /** 主键ID */
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 群组ID */
-    private Long groupId;
-
-    /** 用户ID */
+    /** 所属用户ID */
     private Long userId;
 
-    /** 在群里的昵称 */
-    private String memberNickname;
+    /** 分组名称 */
+    private String groupName;
 
-    /** 加入时间 */
-    private LocalDateTime joinTime;
+    /** 创建时间 */
+    private LocalDateTime createTime;
 }

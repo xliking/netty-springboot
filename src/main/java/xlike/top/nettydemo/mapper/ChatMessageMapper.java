@@ -6,6 +6,6 @@ import xlike.top.nettydemo.pojo.domain.ChatMessage;
 /**
  * @author Administrator
  */
-public interface MessageMapper extends BaseMapper<ChatMessage> {
+public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
 
 }
